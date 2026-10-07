@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>プレイリスト・プレイヤー</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f3f1ec;--card:#fff;--tx:#1c1b1f;--sub:#6d6a73;--ac:#2f5bea;--ac2:#e0a100;--line:#dedbd3;--on:#e8eefe}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121317;--card:#1c1e24;--tx:#ecebf0;--sub:#9a98a3;--ac:#7a9bff;--ac2:#f2c14e;--line:#2c2f38;--on:#232a44}}
+:root[data-theme="dark"]{--bg:#121317;--card:#1c1e24;--tx:#ecebf0;--sub:#9a98a3;--ac:#7a9bff;--ac2:#f2c14e;--line:#2c2f38;--on:#232a44}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.6 "Hiragino Sans","Yu Gothic",Meiryo,sans-serif}
+main{max-width:720px;margin:0 auto;padding:16px 14px 40px}
+h1{font-size:20px;margin:4px 0 2px}
+.stat{color:var(--sub);font-size:13px;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+button,select,input[type=number]{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--ac)}
+button:focus-visible,input:focus-visible,li:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+button.act{background:var(--ac);border-color:var(--ac);color:#fff}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.now{font-size:17px;font-weight:700;min-height:1.6em;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.time{display:flex;justify-content:space-between;color:var(--sub);font-size:12px}
+.ctl{display:flex;gap:10px;justify-content:center;margin:10px 0}
+.ctl button{min-width:64px;font-size:18px;padding:10px 14px}
+#play{min-width:88px;background:var(--ac);color:#fff;border-color:var(--ac)}
+.sub{font-size:12px;color:var(--sub)}
+.vol{display:flex;gap:8px;align-items:center}
+.vol input{flex:1}
+.vol b{min-width:48px;text-align:right}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;gap:8px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line)}
+li.on{background:var(--on);border-radius:6px}
+li.over{border-top:2px solid var(--ac)}
+li .n{width:26px;text-align:right;color:var(--sub);font-size:12px}
+li .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+li .d{color:var(--sub);font-size:12px}
+li button{padding:2px 8px}
+li button.st{color:var(--ac2);border-color:var(--ac2)}
+.ck{font-size:12px;color:var(--sub);white-space:nowrap}
+.empty{justify-content:center;color:var(--sub);padding:28px 0}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:14px;text-align:center;color:var(--sub);margin-bottom:12px}
+#drop.hv{border-color:var(--ac);color:var(--ac)}
+input[type=number]{width:70px}
+</style>
+</head>
+<body>
+<main>
+<h1>プレイリスト・プレイヤー</h1>
+<p class="stat" id="stat">曲を追加してください</p>
+
+<div id="drop">
+  mp3 / m4a をここにドロップ、または
+  <button id="addBtn">ファイルを選ぶ</button>
+  <input id="file" type="file" accept=".mp3,.m4a,audio/mpeg,audio/mp4,audio/x-m4a" multiple hidden>
+</div>
+
+<section class="card">
+  <div class="now" id="now">未再生</div>
+  <input type="range" id="seek" min="0" max="0" step="0.1" value="0" aria-label="シークバー">
+  <div class="time"><span id="cur">0:00</span><span id="dur">0:00</span></div>
+  <div class="ctl">
+    <button id="again" title="もう一度（ダブル押しで前の曲）">↺</button>
+    <button id="play">▶</button>
+    <button id="next" title="次の曲">⏭</button>
+  </div>
+  <div class="sub" style="text-align:center">↺ は頭出し。素早く2回押すと前の曲へ</div>
+  <div class="row" style="margin-top:10px">
+    <button id="shuf">シャッフル：オフ</button>
+    <button id="rep">リピート：なし</button>
+    <span id="rangeBox" class="row" hidden>
+      <input type="number" id="rs" min="1" value="1" aria-label="開始曲">曲目 〜
+      <input type="number" id="re" min="1" placeholder="最後" aria-label="終了曲">曲目
+    </span>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <span class="sub">1曲内のA-Bリピート</span>
+    <button id="aBtn">A点</button><button id="bBtn">B点</button><button id="abClr">解除</button>
+    <span class="sub" id="abInfo"></span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="vol">
+    <span>音量</span>
+    <button id="vm">−</button>
+    <input type="range" id="vol" min="0" max="100" step="0.5" value="60" aria-label="音量">
+    <button id="vp">＋</button>
+    <b id="volv">60</b>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button id="mEar">イヤホン</button><button id="mSpk">スピーカー</button>
+    <span class="sub" id="modeInfo"></span>
+  </div>
+</section>
+
+<section class="card">
+  <div class="tabs">
+    <button id="tAll" class="act">全曲</button>
+    <button id="tTop">トップ</button>
+    <button id="pickBtn" style="margin-left:auto">チェック曲だけ流す</button>
+  </div>
+  <div class="sub" id="topInfo" style="margin-bottom:6px"></div>
+  <ul id="list"></ul>
+</section>
+</main>
+
+<script>
+const $=s=>document.querySelector(s);
+const au=new Audio();au.preload='metadata';
+let tracks=[],cur=null,queue=[],qi=-1,view='all',shuffle=false,repeat='off',pickMode=false,A=null,B=null,mode='earphone',ctx,gain,shelf,uid=0,dragId=null;
+const fmt=s=>{if(!isFinite(s)||s==null)return'--:--';s=Math.round(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=s%60;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(c).padStart(2,'0')};
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId=id=>tracks.find(t=>t.id===id);
+
+/* ---- 追加 ---- */
+function add(files){
+  [...files].filter(f=>/\.(mp3|m4a)$/i.test(f.name)||/^audio\//.test(f.type)).forEach(f=>{
+    const t={id:++uid,name:f.name.replace(/\.[^.]+$/,''),url:URL.createObjectURL(f),dur:null,top:false,pick:false};
+    tracks.push(t);
+    const a=new Audio();a.preload='metadata';a.src=t.url;
+    a.onloadedmetadata=()=>{t.dur=a.duration;render()};
+  });
+  render();
+}
+$('#addBtn').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{add(e.target.files);e.target.value=''};
+const dz=$('#drop');
+['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();dz.classList.add('hv')}}));
+['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,()=>dz.classList.remove('hv')));
+dz.addEventListener('drop',e=>{e.preventDefault();add(e.dataTransfer.files)});
+
+/* ---- 音量・モード ---- */
+let vol=60;
+function ensureCtx(){
+  if(ctx)return;
+  try{
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const s=ctx.createMediaElementSource(au);
+    shelf=ctx.createBiquadFilter();shelf.type='lowshelf';shelf.frequency.value=180;
+    gain=ctx.createGain();
+    s.connect(shelf);shelf.connect(gain);gain.connect(ctx.destination);
+    au.volume=1;applyVol();
+  }catch(e){ctx=null}
+}
+function applyVol(){
+  const g=Math.pow(vol/100,2)*(mode==='earphone'?0.6:1);
+  if(gain){gain.gain.value=g;shelf.gain.value=mode==='speaker'?5:0}else au.volume=Math.min(1,Math.sqrt(g));
+  $('#vol').value=vol;$('#volv').textContent=vol.toFixed(1);
+  $('#mEar').classList.toggle('act',mode==='earphone');
+  $('#mSpk').classList.toggle('act',mode==='speaker');
+  $('#modeInfo').textContent=mode==='earphone'?'最大音量を抑えて耳を保護':'低音を少し強調して広がりを出す';
+}
+$('#vol').oninput=e=>{vol=+e.target.value;applyVol()};
+$('#vm').onclick=()=>{vol=Math.max(0,vol-0.5);applyVol()};
+$('#vp').onclick=()=>{vol=Math.min(100,vol+0.5);applyVol()};
+$('#mEar').onclick=()=>{mode='earphone';applyVol()};
+$('#mSpk').onclick=()=>{mode='speaker';applyVol()};
+
+/* ---- キュー ---- */
+function pool(){
+  if(pickMode)return tracks.filter(t=>t.top&&t.pick);
+  if(repeat==='range'){
+    const s=Math.max(1,+$('#rs').value||1),e=Math.min(tracks.length,+$('#re').value||tracks.length);
+    return tracks.slice(s-1,Math.max(s,e));
+  }
+  return tracks.slice();
+}
+function buildQueue(startId){
+  let l=pool().map(t=>t.id);
+  if(shuffle||pickMode)for(let i=l.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[l[i],l[j]]=[l[j],l[i]]}
+  if(startId!=null){const k=l.indexOf(startId);if(k>0){l.splice(k,1);l.unshift(startId)}else if(k<0)l.unshift(startId)}
+  queue=l;qi=0;
+}
+const refreshQueue=()=>{if(cur)buildQueue(cur.id);else queue=[]};
+function play(id){
+  const t=byId(id);if(!t)return;
+  cur=t;au.src=t.url;A=B=null;ensureCtx();
+  if(ctx&&ctx.state==='suspended')ctx.resume();
+  au.play().catch(()=>{});
+  ui();render();
+}
+function playFrom(id){buildQueue(id);play(id)}
+function next(){
+  if(!tracks.length)return;
+  if(!queue.length||!cur){const p=pool();if(p.length)playFrom(p[0].id);return}
+  if(qi+1<queue.length){qi++;play(queue[qi]);return}
+  if(repeat!=='off'||pickMode){buildQueue();if(queue.length)play(queue[0]);return}
+  au.pause();au.currentTime=0;ui();
+}
+function prev(){if(qi>0){qi--;play(queue[qi])}else au.currentTime=0}
+au.onended=()=>{if(repeat==='one'){au.currentTime=0;au.play()}else next()};
+au.onplay=au.onpause=ui;
+au.onloadedmetadata=()=>{$('#seek').max=au.duration;$('#dur').textContent=fmt(au.duration);if(cur&&!cur.dur){cur.dur=au.duration;render()}};
+au.ontimeupdate=()=>{
+  $('#seek').value=au.currentTime;$('#cur').textContent=fmt(au.currentTime);
+  if(B!=null&&au.currentTime>=B)au.currentTime=A??0;
+};
+$('#seek').oninput=e=>{au.currentTime=+e.target.value};
+
+/* ---- ボタン ---- */
+$('#play').onclick=()=>{
+  if(!cur){next();return}
+  ensureCtx();if(ctx&&ctx.state==='suspended')ctx.resume();
+  au.paused?au.play():au.pause();
+};
+$('#next').onclick=next;
+let lastR=0;
+$('#again').onclick=()=>{
+  const n=Date.now();
+  if(n-lastR<450){lastR=0;prev()}else{lastR=n;au.currentTime=A??0}
+};
+$('#shuf').onclick=()=>{shuffle=!shuffle;refreshQueue();ui()};
+const reps=['off','all','one','range'],repLabel={off:'なし',all:'全曲',one:'1曲',range:'範囲'};
+$('#rep').onclick=()=>{repeat=reps[(reps.indexOf(repeat)+1)%4];refreshQueue();ui()};
+$('#rs').onchange=$('#re').onchange=refreshQueue;
+$('#aBtn').onclick=()=>{A=au.currentTime;if(B!=null&&B<=A)B=null;ui()};
+$('#bBtn').onclick=()=>{if(A==null)A=0;B=au.currentTime;if(B<=A){B=null}ui()};
+$('#abClr').onclick=()=>{A=B=null;ui()};
+$('#tAll').onclick=()=>{view='all';render()};
+$('#tTop').onclick=()=>{view='top';render()};
+$('#pickBtn').onclick=()=>{
+  pickMode=!pickMode;
+  if(pickMode){const p=pool();if(!p.length){pickMode=false;alert('トップの曲にチェックを入れてください');return}
+    buildQueue();play(queue[0])}else refreshQueue();
+  ui();render();
+};
+
+function ui(){
+  $('#play').textContent=au.paused?'▶':'⏸';
+  $('#now').textContent=cur?cur.name:'未再生';
+  $('#shuf').textContent='シャッフル：'+(shuffle||pickMode?'オン':'オフ');
+  $('#shuf').classList.toggle('act',shuffle||pickMode);
+  $('#rep').textContent='リピート：'+repLabel[repeat];
+  $('#rep').classList.toggle('act',repeat!=='off');
+  $('#rangeBox').hidden=repeat!=='range';
+  $('#pickBtn').classList.toggle('act',pickMode);
+  $('#pickBtn').textContent=pickMode?'チェック曲再生中（解除）':'チェック曲だけ流す';
+  $('#aBtn').classList.toggle('act',A!=null);$('#bBtn').classList.toggle('act',B!=null);
+  $('#abInfo').textContent=A==null?'':`A ${fmt(A)}${B!=null?' 〜 B '+fmt(B):''}`;
+  $('#tAll').classList.toggle('act',view==='all');$('#tTop').classList.toggle('act',view==='top');
+}
+
+/* ---- リスト ---- */
+function render(){
+  const arr=view==='top'?tracks.filter(t=>t.top):tracks;
+  $('#list').innerHTML=arr.length?arr.map(t=>{
+    const i=tracks.indexOf(t);
+    return `<li tabindex="0" class="${t===cur?'on':''}" draggable="${view==='all'}" data-id="${t.id}">
+<span class="n">${i+1}</span><span class="t" data-a="play">${esc(t.name)}</span><span class="d">${fmt(t.dur)}</span>
+${view==='top'?`<label class="ck"><input type="checkbox" data-a="pick" ${t.pick?'checked':''}>めっちゃ聴く</label>`:''}
+<button data-a="star" class="${t.top?'st':''}" title="トップに入れる/外す">${t.top?'★':'☆'}</button>
+${view==='all'?'<button data-a="up" title="上へ">↑</button><button data-a="dn" title="下へ">↓</button>':''}
+<button data-a="del" title="削除">✕</button></li>`}).join('')
+  :`<li class="empty">${view==='top'?'☆を押した曲がここに入ります':'まだ曲がありません'}</li>`;
+  const sum=a=>a.reduce((s,t)=>s+(t.dur||0),0);
+  const top=tracks.filter(t=>t.top),pk=top.filter(t=>t.pick);
+  $('#stat').textContent=tracks.length?`全${tracks.length}曲　合計 ${fmt(sum(tracks))}`:'曲を追加してください';
+  $('#topInfo').textContent=view==='top'?`トップ ${top.length}曲（${fmt(sum(top))}）／チェック ${pk.length}曲（${fmt(sum(pk))}）`:`トップ ${top.length}曲`;
+  ui();
+}
+const move=(i,d)=>{const j=i+d;if(j<0||j>=tracks.length)return;[tracks[i],tracks[j]]=[tracks[j],tracks[i]];refreshQueue();render()};
+$('#list').addEventListener('click',e=>{
+  const li=e.target.closest('li[data-id]'),b=e.target.closest('[data-a]');if(!li||!b)return;
+  const t=byId(+li.dataset.id),a=b.dataset.a,i=tracks.indexOf(t);
+  if(a==='play')playFrom(t.id);
+  else if(a==='pick'){t.pick=e.target.checked;if(pickMode)refreshQueue();render()}
+  else if(a==='star'){t.top=!t.top;if(!t.top)t.pick=false;render()}
+  else if(a==='up')move(i,-1);
+  else if(a==='dn')move(i,1);
+  else if(a==='del'){
+    URL.revokeObjectURL(t.url);tracks.splice(i,1);
+    if(t===cur){au.pause();au.removeAttribute('src');cur=null;queue=[];$('#cur').textContent='0:00';$('#dur').textContent='0:00'}else refreshQueue();
+    render();
+  }
+});
+$('#list').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches('li[data-id]'))playFrom(+e.target.dataset.id)});
+/* ドラッグで並び替え */
+const L=$('#list');
+L.addEventListener('dragstart',e=>{const li=e.target.closest('li[data-id]');if(li){dragId=+li.dataset.id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain','')}});
+L.addEventListener('dragover',e=>{if(dragId==null)return;e.preventDefault();L.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));const li=e.target.closest('li[data-id]');if(li)li.classList.add('over')});
+L.addEventListener('drop',e=>{
+  e.preventDefault();const li=e.target.closest('li[data-id]');
+  if(li&&dragId!=null){const from=tracks.findIndex(t=>t.id===dragId),to=tracks.findIndex(t=>t.id===+li.dataset.id);
+    if(from!==to){const [m]=tracks.splice(from,1);tracks.splice(to,0,m);refreshQueue()}}
+  dragId=null;render();
+});
+L.addEventListener('dragend',()=>{dragId=null;render()});
+
+applyVol();render();
+</script>
+</body>
+</html>
